@@ -1,0 +1,10 @@
+# Normalize line endings: treat everything as text and store LF in the repo.
+* text=auto eol=lf
+
+# Explicitly mark the file types in this repo as text.
+*.md    text
+*.json  text
+*.txt   text
+
+# Keep GitHub language stats focused on the skill's actual content.
+*.md linguist-detectable=true
