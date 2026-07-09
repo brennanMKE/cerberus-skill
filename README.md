@@ -32,19 +32,22 @@ Splitting a task across three fresh subagents isn't just about assigning the rig
 
 - **Three-phase, subagent-isolated pipeline** with a strict invariant: the review model is always at least as strong as the implementation model, so the reviewer can catch what the implementer missed. A fallback ladder covers cases where not every model tier is available.
 - **Mandatory verification** in both implementation and review — "it compiles" is never accepted as "it works." The reviewer re-runs verification independently rather than trusting the implementer's claim.
-- **Git-ignored worklog** (`worklog/`) that never enters source control, holding one row per subagent dispatch: date, task, phase, model, token counts, and computed cost.
-- **Weekly cost rollup** — worklog files are grouped by ISO week (`YYYY-Www.md`). Ask "what has this week cost?" or "does this fit my plan?" and the skill sums the week, projects to a month, and maps it to Claude Code plan tiers.
+- **Git-ignored worklog** (`worklog/usage.jsonl`) that never enters source control, holding one machine-readable record per subagent dispatch: date, task, phase, model, token counts, and computed cost. A bundled script records each row so the token accounting and cost math are exact, not reconstructed by hand.
+- **Weekly or monthly cost rollup** — a bundled `report.py` aggregates the worklog by week, month, or date range, broken down by phase, model, and task. Ask "what has this week cost?" or "does this fit my plan?" and the skill runs it, projects to a month, and maps it to Claude Code plan tiers.
 - **Token-saving guidance** — concrete tactics for trimming heads that don't earn their cost, scoping subagent context, exploiting the prompt cache, and right-sizing models.
 
 ## Layout
 
 ```
 cerberus/
-├── SKILL.md                      # entry point: the pipeline, worklog setup, weekly rollup, anti-patterns
-└── references/
-    ├── workflow.md               # plan → implement → review dispatch spec + model fallback ladder
-    ├── cost-tracking.md          # worklog layout, pricing cache, token-counting recipe, weekly rollup
-    └── token-tips.md             # tactics for spending fewer tokens
+├── SKILL.md                      # entry point: the pipeline, worklog setup, rollup, anti-patterns
+├── references/
+│   ├── workflow.md               # plan → implement → review dispatch spec + model fallback ladder
+│   ├── cost-tracking.md          # worklog layout, pricing cache, how the scripts record & roll up
+│   └── token-tips.md             # tactics for spending fewer tokens
+└── scripts/
+    ├── record_usage.py           # record one dispatch to worklog/usage.jsonl (dedupes + prices)
+    └── report.py                 # roll up the worklog by week / month / range
 ```
 
 ## Installation

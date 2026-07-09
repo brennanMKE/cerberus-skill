@@ -28,7 +28,7 @@ Fallback, in order of preference:
 3. **Only two tiers available** → plan and implement may share the lower tier, but review stays on the higher tier.
 4. **Only one model available** → run the phases sequentially on that model in fresh subagents anyway; the fresh-context isolation and the independent re-verification still add value, even without tier separation. Note in the report that tier separation wasn't possible.
 
-Record the *actual* model id used in each worklog row — never the intended default.
+`scripts/record_usage.py` reads the *actual* model id from the transcript, so a fallback tier is recorded truthfully — you never have to pass the intended default.
 
 ## Deciding which heads to run
 
@@ -48,7 +48,7 @@ When you trim, note it to the user ("skipped planning — one-line change") so t
    - The specific files the task touches — enough to ground the plan in what actually exists. The planner reads code but does **not** modify it.
 3. **The planner returns a plan**: the suspected root cause or the shape of the change, the files/functions likely involved, the approach in a few concrete steps, and **how the change should be verified**. The plan is guidance for the implementer, not a contract — the implementer may deviate if reality differs, and should say why.
 4. **Nothing is written to disk** in this phase. The plan comes back to the orchestrator, which passes it into the head-2 dispatch — Cerberus keeps it in-session rather than persisting it to markdown.
-5. **Orchestrator records the planner's usage** as a worklog row (model = the actual Fable id). See `cost-tracking.md`.
+5. **Orchestrator records the planner's usage**: `scripts/record_usage.py --task "<label>" --phase plan`. See `cost-tracking.md`.
 
 If the planner can't produce a useful plan (task too vague, needs user input), it returns what it can plus an explicit note about what's unclear. The orchestrator relays the question to the user rather than dispatching implementation on a guess.
 
@@ -58,7 +58,7 @@ If the planner can't produce a useful plan (task too vague, needs user input), i
 
 1. **Refresh the pricing cache if stale** (once per session, before the first dispatch). See `cost-tracking.md`.
 2. **Spawn a fresh Sonnet subagent** with the task and the plan from phase 1, plus instructions to follow the checklist below.
-3. **When it returns, record its usage** (model = the actual Sonnet id) as a worklog row. Bails get a row too.
+3. **When it returns, record its usage**: `scripts/record_usage.py --task "<label>" --phase implement` (add `--status bail` if it bailed — a bail still gets a row).
 4. Proceed to phase 3 (review) before considering the task done.
 
 ### Implementation subagent: build → verify → commit
@@ -69,7 +69,7 @@ You start with fresh context, so orient before touching anything.
 2. **Make the change** required, following the plan. If you deviate, that's fine — say why in your return summary so the reviewer understands the divergence.
 3. **Build *and* run the project's verification command, and confirm tests actually executed and passed.** Mandatory; cannot be skipped or shortcut.
    - **Compilation is not verification.** "It builds" / "no type errors" does not count. The verification command must actually *execute* — unit tests run, the app launches, whatever the project defines as proof. A green build with zero tests run is a failure of this step.
-   - **If you wrote or modified tests, you MUST execute those specific tests and observe them pass.** Confirm the names appear in the run and the result was success. A test that compiles but never ran proves nothing.
+   - **If you wrote or modified tests, execute those specific tests and observe them pass** — confirm the names appear in the run and the result was success. A test that compiles but never ran proves nothing, so seeing it actually run is the only evidence that counts.
    - **Read the output, don't just check the exit code.** "0 tests run", "skipped", "no tests found", or "build succeeded" with no test summary are red flags even at exit code 0.
    - **If verification can't run in your environment** (missing simulator, credentials, hardware, sandbox), you have not verified. Bail per "When you can't finish" and name the step you couldn't run.
    - **If the build was already broken when you started**, note it and bail — don't fix unrelated breakage.
@@ -90,7 +90,7 @@ An independent, stronger-than-the-implementer subagent is the gate between "code
 
 ### Orchestrator: dispatch the reviewer
 
-After implementation returns (with a commit and a verification summary), **spawn a fresh Opus subagent** to review. When it returns, record its usage (model = the actual Opus id) as a worklog row, exactly as for the other phases.
+After implementation returns (with a commit and a verification summary), **spawn a fresh Opus subagent** to review. When it returns, record its usage: `scripts/record_usage.py --task "<label>" --phase review` (add `--status bounce` if it bounced).
 
 ### Review subagent: verify → approve or bounce
 
@@ -112,7 +112,7 @@ task ──▶ [Fable] plan ──▶ [Sonnet] implement + verify + commit ─�
                                         └────────── bounce (notes) ◀───────┘
 ```
 
-Each pass through implementation and each review is its own worklog row. If bounces repeat (say, 2–3 times without convergence), stop looping and surface the situation to the user with the reviewer's notes — throwing more subagent passes at a stuck task just burns tokens.
+Each pass through implementation and each review is its own worklog row (mark rejected reviews `--status bounce`, abandoned implementations `--status bail`). If bounces repeat (say, 2–3 times without convergence), stop looping and surface the situation to the user with the reviewer's notes — throwing more subagent passes at a stuck task just burns tokens.
 
 ## Related references
 
