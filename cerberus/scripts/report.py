@@ -25,20 +25,14 @@ import os
 import sys
 from collections import defaultdict
 
+import worklog  # co-located: shared loader, cost formatting, and task-status derivation
+from worklog import money
+
 
 def load_records(worklog_dir):
-    path = os.path.join(worklog_dir, "usage.jsonl")
-    if not os.path.exists(path):
-        sys.exit(f"No worklog at {path}. Nothing recorded yet.")
-    records = []
-    for line in open(path):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            records.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
+    records = worklog.load_records(worklog_dir)
+    if not records:
+        sys.exit(f"No worklog at {os.path.join(worklog_dir, 'usage.jsonl')}. Nothing recorded yet.")
     return records
 
 
@@ -90,10 +84,6 @@ def summarize(records):
     bounces = sum(1 for r in records if r.get("status") == "bounce")
     bails = sum(1 for r in records if r.get("status") == "bail")
     return total, uncosted, bounces, bails
-
-
-def money(x):
-    return f"${x:,.2f}"
 
 
 def render_text(records, label, is_week):
@@ -174,10 +164,28 @@ def main():
     g.add_argument("--month", help="Calendar month, e.g. 2026-07")
     g.add_argument("--range", nargs=2, metavar=("START", "END"), help="Inclusive YYYY-MM-DD dates")
     g.add_argument("--all", action="store_true")
+    g.add_argument("--status", action="store_true", help="Show what task is in flight now.")
+    g.add_argument("--tasks", action="store_true", help="Show a readable log of recent tasks and their outcomes.")
+    g.add_argument("--write-status", action="store_true", help="(Re)write the CERBERUS.md dashboard file and exit.")
+    ap.add_argument("--status-file", default="CERBERUS.md", help="Path for --write-status (default: CERBERUS.md).")
     ap.add_argument("--markdown", action="store_true", help="Emit markdown instead of plain text.")
     args = ap.parse_args()
 
     records = load_records(args.worklog_dir)
+
+    # Task-level views (derived): current status and the recent-tasks log.
+    if args.status:
+        print(worklog.render_status_md(records) if args.markdown else worklog.render_status_text(records))
+        return
+    if args.tasks:
+        print(worklog.render_status_md(records) if args.markdown else worklog.render_tasks_text(records))
+        return
+    if args.write_status:
+        path = worklog.write_status_file(args.status_file, worklog_dir=args.worklog_dir, records=records)
+        print(f"Wrote {path}")
+        return
+
+    # Cost rollup views (default): totals over a period, by phase/model/task.
     selected, label, is_week = select(records, args)
     if args.markdown:
         print(render_markdown(selected, label, is_week))

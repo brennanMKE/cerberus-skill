@@ -1,7 +1,9 @@
-# Cerberus runtime artifacts — the worklog and pricing cache must never
-# enter source control (see cerberus/references/cost-tracking.md).
+# Cerberus runtime artifacts — the worklog, pricing cache, and transient
+# status dashboard must never enter source control (see
+# cerberus/references/cost-tracking.md).
 worklog/
 model-pricing.json
+CERBERUS.md
 
 # macOS
 .DS_Store
@@ -16,6 +18,10 @@ Icon?
 *.swp
 *.swo
 *~
+
+# Python
+__pycache__/
+*.py[cod]
 
 # Logs and temp files
 *.log

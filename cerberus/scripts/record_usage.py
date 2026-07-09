@@ -29,6 +29,8 @@ import os
 import re
 import sys
 
+import worklog  # co-located module; used to regenerate CERBERUS.md after recording
+
 
 def project_slug(project_dir):
     """Claude Code's project-slug: '/', '.', '_' each become '-'."""
@@ -112,6 +114,10 @@ def main():
     ap.add_argument("--status", default="ok", choices=["ok", "bounce", "bail"],
                     help="ok = normal; bounce = review rejected; bail = implementation gave up. All still cost tokens.")
     ap.add_argument("--note", default="", help="Optional free-text note (e.g. fallback reason, what bounced).")
+    ap.add_argument("--summary", default="", help="One-line 'what landed' for the task log / CERBERUS.md (usually on the implement or review row).")
+    ap.add_argument("--commit", default="", help="Short commit hash the dispatch produced, for the task log.")
+    ap.add_argument("--status-file", default="CERBERUS.md", help="Where to write the status dashboard (default: CERBERUS.md at the project root; keep it git-ignored).")
+    ap.add_argument("--no-status", action="store_true", help="Skip regenerating the CERBERUS.md dashboard after recording.")
     ap.add_argument("--transcript", help="Explicit transcript path; default is the newest agent-*.jsonl for this project.")
     ap.add_argument("--model", help="Model id to record when no transcript is available (other harnesses).")
     ap.add_argument("--worklog-dir", default="worklog")
@@ -157,6 +163,8 @@ def main():
         "requests": requests,
         "cost": cost,
         "pricing_date": pricing_date,
+        "summary": args.summary,
+        "commit": args.commit,
         "note": "; ".join(p for p in note_parts if p),
     }
 
@@ -164,6 +172,10 @@ def main():
     out_path = os.path.join(args.worklog_dir, "usage.jsonl")
     with open(out_path, "a") as fh:
         fh.write(json.dumps(record) + "\n")
+
+    # Regenerate the derived CERBERUS.md dashboard so it always reflects the latest row.
+    if not args.no_status:
+        worklog.write_status_file(args.status_file, worklog_dir=args.worklog_dir)
 
     # Human-readable confirmation for the orchestrator to relay.
     cost_str = f"${cost:,.2f}" if cost is not None else "— (uncosted)"

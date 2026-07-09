@@ -34,6 +34,8 @@ Splitting a task across three fresh subagents isn't just about assigning the rig
 - **Mandatory verification** in both implementation and review — "it compiles" is never accepted as "it works." The reviewer re-runs verification independently rather than trusting the implementer's claim.
 - **Git-ignored worklog** (`worklog/usage.jsonl`) that never enters source control, holding one machine-readable record per subagent dispatch: date, task, phase, model, token counts, and computed cost. A bundled script records each row so the token accounting and cost math are exact, not reconstructed by hand.
 - **Weekly or monthly cost rollup** — a bundled `report.py` aggregates the worklog by week, month, or date range, broken down by phase, model, and task. Ask "what has this week cost?" or "does this fit my plan?" and the skill runs it, projects to a month, and maps it to Claude Code plan tiers.
+- **Status and a recent-task log** — the same `report.py` derives task-level views from the worklog: `--status` (what's in flight right now) and `--tasks` (a readable log of recent tasks with their outcome — approved, bailed, in progress — cost, and what landed). A git-ignored `CERBERUS.md` dashboard at the project root is regenerated after every dispatch. It's a derived read-out, not a ticket tracker — Cerberus still writes no per-task files.
+- **Optional planning doc** — point Cerberus at a human-authored planning document (`PRD.md`, or any name you choose) organized as phases and tasks. It reads the doc to pick the task, runs it through the pipeline, and can tick the task off once review approves. The doc stays yours (and in source control if you like); Cerberus never generates tickets of its own.
 - **Token-saving guidance** — concrete tactics for trimming heads that don't earn their cost, scoping subagent context, exploiting the prompt cache, and right-sizing models.
 
 ## Layout
@@ -47,7 +49,8 @@ cerberus/
 │   └── token-tips.md             # tactics for spending fewer tokens
 └── scripts/
     ├── record_usage.py           # record one dispatch to worklog/usage.jsonl (dedupes + prices)
-    └── report.py                 # roll up the worklog by week / month / range
+    ├── report.py                 # cost rollups + --status / --tasks views
+    └── worklog.py                # shared loader + task-status derivation (imported, not run directly)
 ```
 
 ## Installation

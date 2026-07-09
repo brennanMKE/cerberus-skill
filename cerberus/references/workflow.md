@@ -45,6 +45,7 @@ When you trim, note it to the user ("skipped planning — one-line change") so t
 1. **Orchestrator dispatches a fresh Fable subagent** with the task description and instructions to produce a plan, not to write code.
 2. **The planner orients**, reading in order:
    - `CLAUDE.md` at the repo root, if present — binding project-wide conventions.
+   - The planning doc (e.g. `PRD.md`), if the task was drawn from one — the relevant phase/task and enough surrounding context to plan it well. The planner reads it but does not edit it.
    - The specific files the task touches — enough to ground the plan in what actually exists. The planner reads code but does **not** modify it.
 3. **The planner returns a plan**: the suspected root cause or the shape of the change, the files/functions likely involved, the approach in a few concrete steps, and **how the change should be verified**. The plan is guidance for the implementer, not a contract — the implementer may deviate if reality differs, and should say why.
 4. **Nothing is written to disk** in this phase. The plan comes back to the orchestrator, which passes it into the head-2 dispatch — Cerberus keeps it in-session rather than persisting it to markdown.
@@ -58,7 +59,7 @@ If the planner can't produce a useful plan (task too vague, needs user input), i
 
 1. **Refresh the pricing cache if stale** (once per session, before the first dispatch). See `cost-tracking.md`.
 2. **Spawn a fresh Sonnet subagent** with the task and the plan from phase 1, plus instructions to follow the checklist below.
-3. **When it returns, record its usage**: `scripts/record_usage.py --task "<label>" --phase implement` (add `--status bail` if it bailed — a bail still gets a row).
+3. **When it returns, record its usage**: `scripts/record_usage.py --task "<label>" --phase implement --summary "<what landed>" --commit <hash>` (add `--status bail` if it bailed — a bail still gets a row). The `--summary`/`--commit` feed the task log and `CERBERUS.md`, which the script regenerates automatically.
 4. Proceed to phase 3 (review) before considering the task done.
 
 ### Implementation subagent: build → verify → commit
@@ -102,6 +103,8 @@ After implementation returns (with a commit and a verification summary), **spawn
    - **Bounce** — verification failed, the change is wrong, or scope is off. Return a specific brief: which check failed, what you observed, and what the next implementation pass must address. Leave the commit in place unless it must be discarded (say so). The orchestrator re-dispatches phase 2 with your notes.
 
 The reviewer verifies; it does not declare the task *accepted*. Acceptance is the user's call — the orchestrator reports the verdict and lets the user confirm.
+
+**On approval, if the task came from a planning doc**, the orchestrator may tick that task off in the doc (check its box, optionally noting the commit) so the doc reflects reality. Do this only after review approves, keep the edit minimal, and don't restructure the doc — it's the user's. `CERBERUS.md` updates on its own from the worklog; the planning doc is the one user-owned artifact Cerberus touches.
 
 ## The bounce loop
 
